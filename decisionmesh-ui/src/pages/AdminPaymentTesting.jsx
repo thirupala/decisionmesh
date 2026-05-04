@@ -33,13 +33,18 @@ const STRIPE_CARDS = [
 ];
 
 // ── Razorpay test credentials ─────────────────────────────────────────────────
+// OTP for all scenarios: 1234 · CVV: any 3 digits · Expiry: any future date
 const RAZORPAY_TEST = [
-  { label: 'UPI Success',          value: 'success@razorpay',      type: 'UPI'        },
-  { label: 'UPI Failure',          value: 'failure@razorpay',      type: 'UPI'        },
-  { label: 'Card Success',         value: '4111 1111 1111 1111',   type: 'Card'       },
-  { label: 'Card Decline',         value: '4000 0000 0000 0002',   type: 'Card'       },
-  { label: 'Netbanking Success',   value: 'HDFC (select in popup)', type: 'Netbanking' },
-  { label: 'Wallet (Paytm)',       value: 'Use test OTP: 123456',  type: 'Wallet'     },
+  { label: 'UPI — success',              value: 'success@razorpay',       type: 'UPI',        result: 'Payment captured immediately'               },
+  { label: 'UPI — failure',              value: 'failure@razorpay',       type: 'UPI',        result: 'Payment fails — tests error handling'       },
+  { label: 'Card — success (Visa)',       value: '4111 1111 1111 1111',    type: 'Card',       result: 'Visa test card — payment succeeds'          },
+  { label: 'Card — success (RuPay)',      value: '6076 0000 0000 0002',    type: 'Card',       result: 'RuPay card — payment succeeds'              },
+  { label: 'Card — 3DS required',        value: '4000 0000 0000 0002',    type: 'Card',       result: 'OTP screen shown — enter 1234 to pass'     },
+  { label: 'Card — decline',             value: '5104 0155 5555 5558',    type: 'Card',       result: 'MasterCard — payment declined'              },
+  { label: 'Card — insufficient funds',  value: '4111 1111 1111 1112',    type: 'Card',       result: 'Fails with insufficient_funds error'        },
+  { label: 'Netbanking — success',       value: 'HDFC (select in popup)', type: 'Netbanking', result: 'Select any bank in test mode — succeeds'   },
+  { label: 'Wallet — Paytm',            value: 'OTP: 1234',              type: 'Wallet',     result: 'Paytm wallet — enter OTP 1234 to succeed'  },
+  { label: 'Subscription renewal',       value: 'success@razorpay',       type: 'UPI',        result: 'Use to trigger subscription.charged event'  },
 ];
 
 // ── Plans to test ─────────────────────────────────────────────────────────────
@@ -74,9 +79,9 @@ const TEST_PLANS = [
 ];
 
 const TEST_PACKS = [
-  { name: 'Starter', id: 'starter', credits: 12000, stripe: 'starter', razorpay: 'credits_starter' },
-  { name: 'Growth',  id: 'growth',  credits: 32000, stripe: 'growth',  razorpay: 'credits_growth'  },
-  { name: 'Scale',   id: 'scale',   credits: 100000, stripe: 'scale',  razorpay: 'credits_scale'   },
+  { name: 'Starter', id: 'starter', credits: 12000,  usdPrice: 10, inrPrice: 849,  stripe: 'credits_starter', razorpay: 'credits_starter' },
+  { name: 'Growth',  id: 'growth',  credits: 32000,  usdPrice: 25, inrPrice: 2099, stripe: 'credits_growth',  razorpay: 'credits_growth'  },
+  { name: 'Scale',   id: 'scale',   credits: 100000, usdPrice: 75, inrPrice: 6299, stripe: 'credits_scale',   razorpay: 'credits_scale'   },
 ];
 
 const INTERVALS = ['monthly', 'quarterly', 'halfyearly', 'yearly'];
@@ -88,8 +93,11 @@ const WEBHOOK_EVENTS = [
   { id: 'stripe.invoice.payment_failed',          label: 'Stripe — invoice.payment_failed',          color: '#dc2626' },
   { id: 'stripe.customer.subscription.deleted',   label: 'Stripe — customer.subscription.deleted',   color: '#dc2626' },
   { id: 'razorpay.payment.captured',              label: 'Razorpay — payment.captured',              color: '#f59e0b' },
+  { id: 'razorpay.payment.failed',                label: 'Razorpay — payment.failed',                color: '#dc2626' },
   { id: 'razorpay.subscription.activated',        label: 'Razorpay — subscription.activated',        color: '#f59e0b' },
+  { id: 'razorpay.subscription.charged',          label: 'Razorpay — subscription.charged',          color: '#f59e0b' },
   { id: 'razorpay.subscription.cancelled',        label: 'Razorpay — subscription.cancelled',        color: '#dc2626' },
+  { id: 'razorpay.subscription.halted',           label: 'Razorpay — subscription.halted',           color: '#dc2626' },
 ];
 
 // ── Copy to clipboard helper ──────────────────────────────────────────────────
@@ -189,7 +197,7 @@ export default function AdminPaymentTesting({ keycloak }) {
           method: 'POST',
           body: JSON.stringify({
             email: userEmail,
-            plan:  pack.stripe,
+            plan:  pack.stripe,   // "credits_starter" → resolves stripe.price.credits.starter
             mode:  'payment',
             creditAmount: pack.credits,
           }),
@@ -203,7 +211,29 @@ export default function AdminPaymentTesting({ keycloak }) {
           method: 'POST',
           body: JSON.stringify({ priceId: pack.razorpay, mode: 'payment', creditAmount: pack.credits }),
         });
-        addResult('success', `Razorpay order created: ${order?.orderId} for Credits ${pack.name}`);
+        if (!order?.orderId && !order?.subscriptionId)
+          throw new Error('No order ID returned from Razorpay');
+        addResult('success', `Razorpay order created: ${order.orderId} — opening popup`);
+        // Open Razorpay popup to complete the test payment
+        const loaded = window.Razorpay || await new Promise(res => {
+          const s = document.createElement('script');
+          s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+          s.onload = () => res(true); s.onerror = () => res(false);
+          document.head.appendChild(s);
+        });
+        if (!loaded) throw new Error('Razorpay SDK failed to load');
+        new window.Razorpay({
+          key:         order.keyId,
+          order_id:    order.orderId,
+          amount:      order.amount,
+          currency:    order.currency || 'INR',
+          name:        'DecisionMesh [TEST]',
+          description: `Credits ${pack.name} — ${pack.credits.toLocaleString()} credits`,
+          prefill:     { email: userEmail },
+          theme:       { color: '#2563eb' },
+          handler: (r) => addResult('success', `Payment done: ${r.razorpay_payment_id} — call /billing/razorpay/verify to complete`),
+          modal: { ondismiss: () => addResult('error', 'Razorpay popup dismissed') },
+        }).open();
       }
     } catch (e) {
       addResult('error', `Credits ${pack.name}: ${e.message}`);
@@ -316,9 +346,13 @@ export default function AdminPaymentTesting({ keycloak }) {
               ))}
             </tbody>
           </table>
-          {gateway === 'stripe' && (
+          {gateway === 'stripe' ? (
             <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-[10px] text-slate-400">
               Use any future expiry date · CVC: any 3 digits · ZIP: any 5 digits
+            </div>
+          ) : (
+            <div className="px-4 py-2.5 bg-amber-50 border-t border-amber-100 text-[10px] text-amber-700">
+              Card OTP: <strong>1234</strong> · CVV: any 3 digits · Expiry: any future date · Subscription plans redirect to Razorpay hosted page (expected)
             </div>
           )}
         </div>

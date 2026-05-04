@@ -84,9 +84,9 @@ const PLANS = [
       },
       razorpay: {
         monthly:    'plan_SdDtQreYZOuDuZ',
-        quarterly:  null,   // contact sales or configure in Razorpay dashboard
-        halfyearly: null,  // contact sales or configure in Razorpay dashboard
-        yearly:     null,       // contact sales or configure in Razorpay dashboard
+        quarterly:  'plan_SdR7GBM6uj4NqV',
+        halfyearly: 'plan_SdR8W9gg1aXHkK',
+        yearly:     'plan_SdR92osLF8JvPx',
       },
     },
     features: ['15,000 credits/month', 'All adapters', 'Policy builder',
@@ -111,9 +111,9 @@ const PLANS = [
       },
       razorpay: {
         monthly:    'plan_SdDv8HzOQxPoFm',
-        quarterly:  null,   // contact sales or configure in Razorpay dashboard
-        halfyearly: null,  // contact sales or configure in Razorpay dashboard
-        yearly:     null,       // contact sales or configure in Razorpay dashboard
+        quarterly:  'plan_SdR9crmN0Nxxzj',
+        halfyearly: 'plan_SdRA09r9Rs9KA0',
+        yearly:     'plan_SdRAPgVKuMooyq',
       },
     },
     features: ['60,000 credits/month', 'Multi-tenancy', '5 team seats',
@@ -141,22 +141,22 @@ const CREDIT_PACKS = [
     id: 'starter', name: 'Starter', credits: 12000,
     usdPrice: 10, inrPrice: 849,
     usdPerCr: '$0.00083', inrPerCr: '₹0.0707',
-    // stripe: backend resolves from stripe.price.credits.starter
-    // razorpay: backend resolves amount from razorpay.credits.starter.amount (84900 paise)
-    priceId: { stripe: 'starter', razorpay: 'credits_starter' },
+    // stripe key must be "credits_starter" → resolves stripe.price.credits.starter
+    // razorpay key must be "credits_starter" → resolves razorpay.credits.starter.amount
+    priceId: { stripe: 'credits_starter', razorpay: 'credits_starter' },
   },
   {
     id: 'growth', name: 'Growth', credits: 32000,
     usdPrice: 25, inrPrice: 2099,
     usdPerCr: '$0.00078', inrPerCr: '₹0.0656',
     popular: true,
-    priceId: { stripe: 'growth', razorpay: 'credits_growth' },
+    priceId: { stripe: 'credits_growth', razorpay: 'credits_growth' },
   },
   {
     id: 'scale', name: 'Scale', credits: 100000,
     usdPrice: 75, inrPrice: 6299,
     usdPerCr: '$0.00075', inrPerCr: '₹0.0630',
-    priceId: { stripe: 'scale', razorpay: 'credits_scale' },
+    priceId: { stripe: 'credits_scale', razorpay: 'credits_scale' },
   },
 ];
 
@@ -624,7 +624,9 @@ export default function Billing({ keycloak }) {
       method: 'POST',
       body: JSON.stringify({ priceId, mode, ...extraBody }),
     });
-    if (!order?.orderId) throw new Error('Failed to create Razorpay order');
+    // Subscriptions return subscriptionId; one-time payments return orderId
+    if (!order?.orderId && !order?.subscriptionId)
+      throw new Error('Failed to create Razorpay order');
 
     // Step 2: open Razorpay popup
     const payment = await openRazorpay(order, userEmail);
@@ -648,7 +650,8 @@ export default function Billing({ keycloak }) {
         // Resolve interval-aware key: e.g. "builder_quarterly"
         // Backend maps this to the real Stripe price_xxx from application.properties
         const stripeKey = plan.priceId.stripe[interval];
-        await stripeCheckout(stripeKey, 'subscription', { plan: plan.id, interval });
+        // NOTE: do NOT pass plan.id in extraBody — it would overwrite stripeKey as `plan`
+        await stripeCheckout(stripeKey, 'subscription', { interval });
       } else {
         // Resolve real Razorpay plan_xxx ID for this interval
         const rzpPlanId = plan.priceId.razorpay[interval];
@@ -674,8 +677,9 @@ export default function Billing({ keycloak }) {
     setSelecting(pack.id);
     try {
       if (gateway === 'stripe') {
-        // pack.id = "starter" | "growth" | "scale" — backend maps to credits_xxx price
-        await stripeCheckout(pack.id, 'payment', { creditAmount: pack.credits });
+        // Use priceId.stripe ("credits_starter") not pack.id ("starter")
+        // StripeService resolves "credits_starter" → stripe.price.credits.starter
+        await stripeCheckout(pack.priceId.stripe, 'payment', { creditAmount: pack.credits });
       } else {
         const pid = pack.priceId[gateway];
         await razorpayCheckout(pid, 'payment', { creditAmount: pack.credits });
