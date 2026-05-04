@@ -167,25 +167,25 @@ function ProjectSwitcher() {
   }
 
   return (
-    <div className="relative px-2 pb-2 border-b border-slate-100">
+    <div className="relative px-2 pb-2 border-b border-slate-200">
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-slate-50 transition-colors text-left"
+        className="w-full flex items-center gap-2.5 px-2 py-2 rounded-xl hover:bg-slate-100 transition-colors text-left"
       >
         <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
+          className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm"
           style={{ backgroundColor: 'var(--brand-primary)' }}
         >
           {org.name?.[0]?.toUpperCase() ?? 'O'}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-slate-700 leading-none truncate">{org.name}</p>
-          <div className="flex items-center gap-1 mt-0.5">
+          <p className="text-[11px] font-semibold text-slate-500 leading-none truncate">{org.name}</p>
+          <div className="flex items-center gap-1 mt-1">
             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ENV_DOTS[activeProject?.environment] ?? 'bg-slate-400'}`} />
             <p className="text-xs font-bold text-slate-900 leading-none truncate">{activeProject?.name ?? 'No project'}</p>
           </div>
         </div>
-        <ChevronDown size={12} className={`text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown size={12} className={`text-slate-400 shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
@@ -250,36 +250,41 @@ export default function Sidebar({ collapsed, onToggle, onHide, keycloak }) {
 
   return (
     <aside className={cn(
-      'flex flex-col h-screen bg-white border-r border-slate-200 transition-all duration-200 shrink-0 shadow-sm',
+      'flex flex-col h-screen bg-white border-r border-slate-200 transition-all duration-200 shrink-0',
       collapsed ? 'w-14' : 'w-48'
     )}>
       {/* Header */}
       <div className={cn(
-        'flex items-center border-b border-slate-100 shrink-0',
+        'flex items-center border-b border-slate-200 shrink-0',
         collapsed ? 'justify-center px-0 py-4' : 'px-3 py-3 gap-2.5'
       )}>
-        <img
-          src="/decimeshi-icon.svg"
-          alt="DecisionMesh"
-          className="w-9 h-9 rounded-xl shrink-0"
-        />
+        {/* Icon — bordered container for clean edge */}
+        <div className="shrink-0 w-9 h-9 rounded-xl border border-slate-200 overflow-hidden shadow-sm bg-white flex items-center justify-center">
+          <img
+            src="/decimeshi-icon.svg"
+            alt="DecisionMesh"
+            className="w-7 h-7 object-contain"
+          />
+        </div>
+
         {!collapsed && (
           <>
-            {/* Real text instead of SVG so we control size + color */}
+            {/* Two-tone wordmark */}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-slate-900 leading-tight">
-                DecisionMesh
+              <p className="text-[15px] font-extrabold leading-none tracking-tight">
+                <span className="text-slate-900">Decision</span><span style={{ color: 'var(--brand-primary)' }}>Mesh</span>
               </p>
-              <p className="text-[10px] font-medium text-slate-500 leading-tight">
+              <p className="text-[9px] font-semibold tracking-[0.10em] uppercase mt-1 whitespace-nowrap"
+                style={{ color: 'var(--brand-primary)', opacity: 0.75 }}>
                 AI Control Plane
               </p>
             </div>
             <button
               onClick={onHide}
-              title="Hide sidebar"
-              className="p-1 rounded-md text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition-colors shrink-0"
+              title="Collapse sidebar"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors shrink-0"
             >
-              <PanelLeftClose size={15} />
+              <PanelLeftClose size={14} />
             </button>
           </>
         )}

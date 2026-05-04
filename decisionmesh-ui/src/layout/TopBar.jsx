@@ -173,23 +173,23 @@ export default function TopBar({ keycloak, sidebarHidden, onToggleSidebar }) {
 
   return (
     <header className="flex items-center justify-between bg-white border-b border-slate-200 shadow-sm shrink-0"
-      style={{ height: 48, paddingLeft: sidebarHidden ? 12 : 16, paddingRight: 12 }}>
+      style={{ height: 52, paddingLeft: sidebarHidden ? 12 : 20, paddingRight: 16 }}>
 
       <div className="flex items-center gap-2 min-w-0">
         {sidebarHidden && (
           <button onClick={onToggleSidebar} title="Show sidebar"
-            className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0">
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0">
             <PanelLeftOpen size={15} />
           </button>
         )}
-        <nav className="flex items-center gap-1 text-sm min-w-0">
+        <nav className="flex items-center gap-1.5 min-w-0">
           {crumbs.map((c, i) => (
-            <span key={i} className="flex items-center gap-1 min-w-0">
-              {i > 0 && <ChevronRight size={12} className="text-slate-300 shrink-0" />}
+            <span key={i} className="flex items-center gap-1.5 min-w-0">
+              {i > 0 && <ChevronRight size={11} className="text-slate-300 shrink-0" />}
               <span className={`truncate ${
                 i === crumbs.length - 1
-                  ? 'font-semibold text-slate-900'
-                  : 'text-slate-400 text-xs'
+                  ? 'text-sm font-semibold text-slate-900'
+                  : 'text-xs font-medium text-slate-400'
               }`}>
                 {c.label}
               </span>
@@ -198,18 +198,18 @@ export default function TopBar({ keycloak, sidebarHidden, onToggleSidebar }) {
         </nav>
       </div>
 
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-2.5 shrink-0">
         <CreditPill />
 
         {!projectLoading && activeProject && (
-          <span className="hidden lg:flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 max-w-28">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
+          <span className="hidden lg:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 font-medium border border-slate-200 max-w-32">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
             <span className="truncate">{activeProject.name}</span>
           </span>
         )}
 
-        <button className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors">
-          <Bell size={14} />
+        <button className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
+          <Bell size={15} />
         </button>
 
         <UserMenu keycloak={keycloak} />
