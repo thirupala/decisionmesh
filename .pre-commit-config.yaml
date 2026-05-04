@@ -1,6 +1,4 @@
-# Update .pre-commit-config.yaml to use system gitleaks
-  @"
-repos:
+﻿repos:
   - repo: local
     hooks:
       - id: gitleaks
@@ -8,7 +6,3 @@ repos:
         language: system
         entry: gitleaks detect --config=.gitleaks.toml --verbose --redact --no-git --source=.
         pass_filenames: false
-"@ | Set-Content .pre-commit-config.yaml
-    
-    git add .pre-commit-config.yaml
-  git commit -m 'chore: fix gitleaks pre-commit hook' --no-verify
