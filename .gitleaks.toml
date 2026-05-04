@@ -1,0 +1,8 @@
+[allowlist]
+description = "Allowlist for known non-sensitive files"
+paths = [
+    '''ER-diagram_files/''',
+    '''keykloak/realm-export\.json''',
+    '''decisionmesh-security/decisionmesh-realm\.json''',
+    '''infra/keycloak/decisionmesh-realm\.json''',
+]

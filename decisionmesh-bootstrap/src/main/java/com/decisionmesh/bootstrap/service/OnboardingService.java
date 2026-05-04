@@ -82,20 +82,29 @@ public class OnboardingService {
         return UserEntity.findByKeycloakSub(userSub)
                 .chain(existing -> {
                     if (existing != null) {
+                        // User exists — update profile if blank (backfill path)
+                        if (isBlank(existing.email) || isBlank(existing.name)) {
+                            return enrichUserProfile(existing, email, name, userSub)
+                                    .replaceWith(existing.tenantId);
+                        }
                         LOG.infof("User exists: %s tenant=%s",
                                 existing.userId, existing.tenantId);
                         return Uni.createFrom().item(existing.tenantId);
                     }
 
-                    UserEntity user = new UserEntity();
-                    user.userId = userId;
-                    user.email = email;
-                    user.name = name;
-                    user.isActive = true;
-
-                    return userRepository.persist(user)
-                            .invoke(u -> LOG.infof("Created user: %s", u.userId))
-                            .replaceWith((UUID) null);
+                    // New user — fetch profile from Zitadel if caller didn't provide it
+                    return resolveProfile(email, name, userSub)
+                            .chain(profile -> {
+                                UserEntity user = new UserEntity();
+                                user.userId   = userId;
+                                user.email    = profile[0];
+                                user.name     = profile[1];
+                                user.isActive = true;
+                                return userRepository.persist(user)
+                                        .invoke(u -> LOG.infof("Created user: %s email=%s",
+                                                u.userId, u.email))
+                                        .replaceWith((UUID) null);
+                            });
                 });
     }
 
@@ -127,20 +136,29 @@ public class OnboardingService {
                     if (existing != null) {
                         LOG.infof("[WebhookProvision] User already in DB: %s — skipping insert",
                                 existing.userId);
+                        // Backfill profile if blank
+                        if (isBlank(existing.email) || isBlank(existing.name)) {
+                            return enrichUserProfile(existing, email, name, userSub)
+                                    .replaceWith(Boolean.FALSE);
+                        }
                         return Uni.createFrom().item(Boolean.FALSE);
                     }
 
                     LOG.infof("[WebhookProvision] New user — inserting: sub=%s email=%s",
                             userSub, email);
-                    UserEntity user = new UserEntity();
-                    user.userId   = userId;
-                    user.email    = email;
-                    user.name     = name;
-                    user.isActive = true;
 
-                    return userRepository.persist(user)
-                            .invoke(u -> LOG.infof("[WebhookProvision] Inserted: %s", u.userId))
-                            .replaceWith(Boolean.TRUE);
+                    return resolveProfile(email, name, userSub)
+                            .chain(profile -> {
+                                UserEntity user = new UserEntity();
+                                user.userId   = userId;
+                                user.email    = profile[0];
+                                user.name     = profile[1];
+                                user.isActive = true;
+                                return userRepository.persist(user)
+                                        .invoke(u -> LOG.infof("[WebhookProvision] Inserted: %s email=%s",
+                                                u.userId, u.email))
+                                        .replaceWith(Boolean.TRUE);
+                            });
                 })
                 .chain(isNew -> assignZitadelRole(userSub, "tenant_user")
                         .map(roleAssigned -> {
@@ -149,8 +167,6 @@ public class OnboardingService {
                                         "user is in DB but has no role. " +
                                         "Call POST /api/onboard/repair-attributes to retry.", userSub);
                             }
-                            // requiresTokenRefresh=false: role is set before the user's
-                            // first login, so the first token will already carry it.
                             return new ProvisionResult(isNew, false);
                         }));
     }
@@ -177,19 +193,27 @@ public class OnboardingService {
                     if (existing != null) {
                         LOG.debugf("[EnsureUser] User present: %s tenantId=%s",
                                 existing.userId, existing.tenantId);
+                        // Backfill email/name if blank — happens when webhook fired before profile was set
+                        if (isBlank(existing.email) || isBlank(existing.name)) {
+                            return enrichUserProfile(existing, email, name, userSub);
+                        }
                         return Uni.createFrom().item(existing);
                     }
 
                     // Fallback insert — only reached if webhook was not delivered
                     LOG.warnf("[EnsureUser] User not found — fallback insert: sub=%s", userSub);
-                    UserEntity user = new UserEntity();
-                    user.userId   = userId;
-                    user.email    = email;
-                    user.name     = name;
-                    user.isActive = true;
 
-                    return userRepository.persist(user)
-                            .invoke(u -> LOG.warnf("[EnsureUser] Fallback insert done: %s", u.userId));
+                    return resolveProfile(email, name, userSub)
+                            .chain(profile -> {
+                                UserEntity user = new UserEntity();
+                                user.userId   = userId;
+                                user.email    = profile[0];
+                                user.name     = profile[1];
+                                user.isActive = true;
+                                return userRepository.persist(user)
+                                        .invoke(u -> LOG.warnf("[EnsureUser] Fallback insert done: %s email=%s",
+                                                u.userId, u.email));
+                            });
                 });
     }
 
@@ -213,10 +237,15 @@ public class OnboardingService {
                     if (found != null) return Uni.createFrom().item(found);
 
                     LOG.warnf("[SetupTenant] User not found for sub=%s — inserting fallback", userSub);
-                    UserEntity fallback = new UserEntity();
-                    fallback.userId   = toUserId(userSub);
-                    fallback.isActive = true;
-                    return userRepository.persist(fallback);
+                    return resolveProfile(null, name, userSub)
+                            .chain(profile -> {
+                                UserEntity fallback = new UserEntity();
+                                fallback.userId   = toUserId(userSub);
+                                fallback.email    = profile[0];  // FIX: was missing
+                                fallback.name     = profile[1];  // FIX: was missing
+                                fallback.isActive = true;
+                                return userRepository.persist(fallback);
+                            });
                 })
                 .chain(user -> {
 
@@ -526,6 +555,133 @@ public class OnboardingService {
             if (!prefix.isBlank()) return prefix;
         }
         return sub.length() > 8 ? sub.substring(0, 8) : sub;
+    }
+
+    // ── Profile resolution helpers ────────────────────────────────────────────
+
+    /**
+     * Returns [email, name] — uses caller-supplied values if non-blank,
+     * otherwise fetches from Zitadel management API.
+     * Never returns null elements — falls back to sub-derived values.
+     */
+    private Uni<String[]> resolveProfile(String email, String name, String userSub) {
+        boolean needsEmail = isBlank(email);
+        boolean needsName  = isBlank(name);
+
+        if (!needsEmail && !needsName) {
+            // Caller provided both — use directly
+            return Uni.createFrom().item(new String[]{ email.trim(), name.trim() });
+        }
+
+        // Fetch from Zitadel to fill gaps
+        return fetchZitadelProfile(userSub)
+                .map(fetched -> {
+                    String resolvedEmail = needsEmail ? fetched[0] : email.trim();
+                    String resolvedName  = needsName  ? fetched[1] : name.trim();
+                    // Final fallback if Zitadel also returned nothing
+                    if (isBlank(resolvedEmail)) resolvedEmail = "";
+                    if (isBlank(resolvedName))  resolvedName  = resolveDisplayName(null, resolvedEmail, userSub);
+                    return new String[]{ resolvedEmail, resolvedName };
+                });
+    }
+
+    /**
+     * Updates an existing UserEntity's email/name from Zitadel if they are blank.
+     * Persists the update and returns the enriched entity.
+     */
+    @WithTransaction
+    Uni<UserEntity> enrichUserProfile(UserEntity user, String email, String name, String userSub) {
+        return resolveProfile(email, name, userSub)
+                .chain(profile -> {
+                    boolean changed = false;
+                    if (isBlank(user.email) && !isBlank(profile[0])) {
+                        user.email = profile[0];
+                        changed = true;
+                    }
+                    if (isBlank(user.name) && !isBlank(profile[1])) {
+                        user.name = profile[1];
+                        changed = true;
+                    }
+                    if (changed) {
+                        LOG.infof("[Profile] Backfilling: userId=%s email=%s name=%s",
+                                user.userId, user.email, user.name);
+                        return userRepository.persist(user);
+                    }
+                    return Uni.createFrom().item(user);
+                });
+    }
+
+    /**
+     * Calls Zitadel Management API v2 to fetch user profile.
+     * Returns [email, displayName] — both may be empty strings if API fails.
+     *
+     * API: GET {zitadelUrl}/v2/users/{userId}
+     * Auth: service account bearer token
+     */
+    private Uni<String[]> fetchZitadelProfile(String userSub) {
+        String url   = zitadelUrl.orElse(null);
+        String token = serviceToken.orElse(null);
+
+        if (url == null || token == null) {
+            LOG.debugf("[Profile] Zitadel config missing — cannot fetch profile for sub=%s", userSub);
+            return Uni.createFrom().item(new String[]{ "", "" });
+        }
+
+        return client.getAbs(url + "/v2/users/" + userSub)
+                .bearerTokenAuthentication(token)
+                .send()
+                .map(res -> {
+                    if (res.statusCode() != 200) {
+                        LOG.warnf("[Profile] Zitadel returned HTTP %d for sub=%s",
+                                res.statusCode(), userSub);
+                        return new String[]{ "", "" };
+                    }
+                    try {
+                        JsonObject body    = res.bodyAsJsonObject();
+                        JsonObject userObj = body.getJsonObject("user");
+                        if (userObj == null) return new String[]{ "", "" };
+
+                        // email — in human.email.email
+                        String fetchedEmail = "";
+                        JsonObject human = userObj.getJsonObject("human");
+                        if (human != null) {
+                            JsonObject emailObj = human.getJsonObject("email");
+                            if (emailObj != null)
+                                fetchedEmail = emailObj.getString("email", "");
+
+                            // displayName — prefer human.profile.displayName
+                            JsonObject profile = human.getJsonObject("profile");
+                            String fetchedName = "";
+                            if (profile != null) {
+                                fetchedName = profile.getString("displayName", "");
+                                if (isBlank(fetchedName))
+                                    fetchedName = profile.getString("firstName", "")
+                                            + " " + profile.getString("lastName", "");
+                                fetchedName = fetchedName.trim();
+                            }
+                            // fallback to userName
+                            if (isBlank(fetchedName))
+                                fetchedName = userObj.getString("userName", "");
+
+                            LOG.infof("[Profile] Fetched from Zitadel: sub=%s email=%s name=%s",
+                                    userSub, fetchedEmail, fetchedName);
+                            return new String[]{ fetchedEmail.trim(), fetchedName.trim() };
+                        }
+                        return new String[]{ fetchedEmail.trim(), "" };
+                    } catch (Exception e) {
+                        LOG.warnf("[Profile] Failed to parse Zitadel response for sub=%s: %s",
+                                userSub, e.getMessage());
+                        return new String[]{ "", "" };
+                    }
+                })
+                .onFailure().invoke(e ->
+                        LOG.warnf("[Profile] Zitadel API call failed for sub=%s: %s",
+                                userSub, e.getMessage()))
+                .onFailure().recoverWithItem(new String[]{ "", "" });
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.isBlank() || "null".equalsIgnoreCase(s.trim());
     }
 
     private UUID toUserId(String sub) {

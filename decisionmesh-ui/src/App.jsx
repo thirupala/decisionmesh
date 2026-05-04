@@ -4,6 +4,8 @@ import Sidebar from './layout/Sidebar';
 import TopBar from './layout/TopBar';
 import { Spinner } from './components/shared';
 import LowCreditBanner from './components/shared/LowCreditBanner';
+import FeedbackWidget from './components/FeedbackWidget';
+import SysAdminRoute from './components/SysAdminRoute';
 
 const Dashboard        = lazy(() => import('./pages/Dashboard'));
 const Playground       = lazy(() => import('./pages/Playground'));
@@ -24,12 +26,17 @@ const OrgBranding      = lazy(() => import('./pages/OrgBranding'));
 const Billing          = lazy(() => import('./pages/Billing'));
 const CreditLedger     = lazy(() => import('./pages/CreditLedger'));
 const TokenDebugPage   = lazy(() => import('./pages/TokenDebugPage'));
-const FintechIntents   = lazy(() => import('./pages/FintechIntents'));   // intent library standalone page
+const FintechIntents   = lazy(() => import('./pages/FintechIntents'));
+
+// ── sys_admin only pages ──────────────────────────────────────────────────────
+const AdminPaymentTesting = lazy(() => import('./pages/AdminPaymentTesting'));
+const AdminFeedback       = lazy(() => import('./pages/AdminFeedback'));
+const AdminUsers          = lazy(() => import('./pages/AdminUsers'));
+const AdminCredits        = lazy(() => import('./pages/AdminCredits'));
+const AdminWebhooks       = lazy(() => import('./pages/AdminWebhooks'));
+const AdminHealth         = lazy(() => import('./pages/AdminHealth'));
 
 // ── Error boundary ────────────────────────────────────────────────────────────
-// Catches unhandled errors thrown during render so a single broken page
-// cannot crash the entire app and leave the user staring at a blank screen.
-
 class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
@@ -69,11 +76,8 @@ class ErrorBoundary extends Component {
     return this.props.children;
   }
 }
-// AuthCallback is handled by main.jsx via AuthProvider.onSigninCallback
-// No separate component needed — AppWrapper manages post-login routing.
 
-// ── Fallbacks ─────────────────────────────────────────────────────────────────
-
+// ── Page loading fallback ─────────────────────────────────────────────────────
 function PageFallback() {
   return (
     <div className="flex items-center justify-center h-64">
@@ -83,7 +87,6 @@ function PageFallback() {
 }
 
 // ── App ───────────────────────────────────────────────────────────────────────
-
 export default function App({ keycloak }) {
   const [collapsed, setCollapsed] = useState(false);
   const [hidden,    setHidden]    = useState(false);
@@ -91,40 +94,85 @@ export default function App({ keycloak }) {
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
       <div className={`transition-all duration-200 shrink-0 overflow-hidden ${hidden ? 'w-0' : ''}`}>
-        <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} onHide={() => setHidden(true)} />
+        <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} onHide={() => setHidden(true)} keycloak={keycloak} />
       </div>
+
       <div className="flex flex-col flex-1 min-w-0">
         <TopBar keycloak={keycloak} sidebarHidden={hidden} onToggleSidebar={() => setHidden(h => !h)} />
         <LowCreditBanner />
+
         <main className="flex-1 overflow-y-auto p-4 scrollbar-thin">
           <ErrorBoundary>
             <Suspense fallback={<PageFallback />}>
               <Routes>
-                <Route path="/"                       element={<Dashboard       keycloak={keycloak} />} />
-                <Route path="/playground"             element={<Playground      keycloak={keycloak} />} />
-                <Route path="/intents"                element={<IntentsTable    keycloak={keycloak} />} />
-                <Route path="/intents/:id"            element={<IntentDetail    keycloak={keycloak} />} />
+                {/* ── App routes ─────────────────────────────────────────── */}
+                <Route path="/"                       element={<Dashboard        keycloak={keycloak} />} />
+                <Route path="/playground"             element={<Playground       keycloak={keycloak} />} />
+                <Route path="/intents"                element={<IntentsTable     keycloak={keycloak} />} />
+                <Route path="/intents/:id"            element={<IntentDetail     keycloak={keycloak} />} />
                 <Route path="/executions"             element={<ExecutionMonitor keycloak={keycloak} />} />
-                <Route path="/adapters"               element={<Adapters        keycloak={keycloak} />} />
-                <Route path="/policies"               element={<PolicyBuilder   keycloak={keycloak} />} />
-                <Route path="/analytics/cost"         element={<CostAnalytics   keycloak={keycloak} />} />
-                <Route path="/analytics/drift"        element={<DriftDashboard  keycloak={keycloak} />} />
-                <Route path="/api-keys"               element={<ApiKeys         keycloak={keycloak} />} />
-                <Route path="/audit"                  element={<AuditLog        keycloak={keycloak} />} />
-                <Route path="/invite"                 element={<InviteUsers     keycloak={keycloak} />} />
-                <Route path="/projects"               element={<Projects        keycloak={keycloak} />} />
-                <Route path="/projects/:id/settings"  element={<ProjectSettings keycloak={keycloak} />} />
-                <Route path="/profile"                element={<UserProfile     keycloak={keycloak} />} />
-                <Route path="/org/branding"           element={<OrgBranding     keycloak={keycloak} />} />
-                <Route path="/billing"                element={<Billing         keycloak={keycloak} />} />
-                <Route path="/credits"                element={<CreditLedger    keycloak={keycloak} />} />
-                <Route path="/debug/token"            element={<TokenDebugPage  keycloak={keycloak} />} />
+                <Route path="/adapters"               element={<Adapters         keycloak={keycloak} />} />
+                <Route path="/policies"               element={<PolicyBuilder    keycloak={keycloak} />} />
+                <Route path="/analytics/cost"         element={<CostAnalytics    keycloak={keycloak} />} />
+                <Route path="/analytics/drift"        element={<DriftDashboard   keycloak={keycloak} />} />
+                <Route path="/api-keys"               element={<ApiKeys          keycloak={keycloak} />} />
+                <Route path="/audit"                  element={<AuditLog         keycloak={keycloak} />} />
+                <Route path="/invite"                 element={<InviteUsers      keycloak={keycloak} />} />
+                <Route path="/projects"               element={<Projects         keycloak={keycloak} />} />
+                <Route path="/projects/:id/settings"  element={<ProjectSettings  keycloak={keycloak} />} />
+                <Route path="/profile"                element={<UserProfile      keycloak={keycloak} />} />
+                <Route path="/org/branding"           element={<OrgBranding      keycloak={keycloak} />} />
+                <Route path="/billing"                element={<Billing          keycloak={keycloak} />} />
+                <Route path="/credits"                element={<CreditLedger     keycloak={keycloak} />} />
+                <Route path="/debug/token"            element={<TokenDebugPage   keycloak={keycloak} />} />
                 <Route path="/intent-library"         element={<FintechIntents   keycloak={keycloak} />} />
-                <Route path="*"                       element={<Navigate to="/" replace />} />
+
+                {/* ── sys_admin only routes ──────────────────────────────── */}
+                <Route path="/admin/payments" element={
+                  <SysAdminRoute keycloak={keycloak}>
+                    <AdminPaymentTesting keycloak={keycloak} />
+                  </SysAdminRoute>
+                } />
+                <Route path="/admin/feedback" element={
+                  <SysAdminRoute keycloak={keycloak}>
+                    <AdminFeedback keycloak={keycloak} />
+                  </SysAdminRoute>
+                } />
+                <Route path="/admin/users" element={
+                  <SysAdminRoute keycloak={keycloak}>
+                    <AdminUsers keycloak={keycloak} />
+                  </SysAdminRoute>
+                } />
+                <Route path="/admin/credits" element={
+                  <SysAdminRoute keycloak={keycloak}>
+                    <AdminCredits keycloak={keycloak} />
+                  </SysAdminRoute>
+                } />
+                <Route path="/admin/webhooks" element={
+                  <SysAdminRoute keycloak={keycloak}>
+                    <AdminWebhooks keycloak={keycloak} />
+                  </SysAdminRoute>
+                } />
+                <Route path="/admin/health" element={
+                  <SysAdminRoute keycloak={keycloak}>
+                    <AdminHealth keycloak={keycloak} />
+                  </SysAdminRoute>
+                } />
+
+                <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
           </ErrorBoundary>
         </main>
+
+        {/*
+          FeedbackWidget — global floating button, fixed bottom-right.
+          Placed here (outside <main>) so it:
+            - is not clipped by main's overflow-y-auto scroll container
+            - stays fixed on screen regardless of page scroll
+            - receives keycloak directly without threading through Page.jsx
+        */}
+        <FeedbackWidget keycloak={keycloak} />
       </div>
     </div>
   );

@@ -23,7 +23,7 @@ import java.util.UUID;
  *   INTENT_EXECUTION    — debit per intent attempt
  *   RETRY               — debit per retry attempt
  *   REFUND              — credit back when execution fails before any LLM call
- *   ADMIN_ADJUSTMENT    — manual override
+ *   ADMIN_ADJUSTMENT    — manual override by sys_admin (NEW: exposed via AdminResource)
  */
 @ApplicationScoped
 public class CreditLedgerService {
@@ -97,6 +97,25 @@ public class CreditLedgerService {
     public Uni<Void> refundExecution(UUID orgId, UUID intentId, int tierCredits) {
         Log.infof("[Credits] Execution refund: orgId=%s intentId=%s +%d", orgId, intentId, tierCredits);
         return append(orgId, tierCredits, "REFUND", intentId.toString());
+    }
+
+    // ── Admin adjustment (NEW) ────────────────────────────────────────────────
+
+    /**
+     * Manual credit grant or deduction by sys_admin.
+     * Called from AdminResource POST /api/admin/users/{id}/credits
+     *
+     * @param orgId       target org
+     * @param amount      positive = grant, negative = deduct
+     * @param note        reason for the adjustment (stored in referenceId)
+     * @param adminUserId the sys_admin's userId for audit trail
+     */
+    @WithTransaction
+    public Uni<Void> adminAdjustment(UUID orgId, int amount, String note, String adminUserId) {
+        String ref = "admin:" + adminUserId + (note != null ? ":" + note : "");
+        Log.infof("[Credits] Admin adjustment: orgId=%s amount=%d adminId=%s note=%s",
+                orgId, amount, adminUserId, note);
+        return append(orgId, amount, "ADMIN_ADJUSTMENT", ref);
     }
 
     // ── Convenience check ─────────────────────────────────────────────────────

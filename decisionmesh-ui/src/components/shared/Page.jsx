@@ -1,6 +1,6 @@
 export default function Page({ title, subtitle, action, children }) {
   return (
-    <div className="max-w-7xl mx-auto space-y-5">
+    <div className="space-y-5">
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-xl font-semibold text-slate-900">{title}</h1>

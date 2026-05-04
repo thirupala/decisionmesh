@@ -11,6 +11,7 @@ import { useCredits } from '../context/CreditContext';
 const LABELS = {
   '/':                    'Dashboard',
   '/playground':          'Playground',
+  '/intent-library':      'Intent Library',
   '/intents':             'Intents',
   '/executions':          'Execution Monitor',
   '/adapters':            'Adapters',
@@ -25,6 +26,13 @@ const LABELS = {
   '/org/branding':        'Organisation Branding',
   '/billing':             'Billing & Plans',
   '/credits':             'Credit Ledger',
+  '/debug/token':         'Token Debug',
+  '/admin/users':         'Admin · Users',
+  '/admin/credits':       'Admin · Credit Ledger',
+  '/admin/webhooks':      'Admin · Webhooks',
+  '/admin/health':        'Admin · System Health',
+  '/admin/feedback':      'Admin · Feedback',
+  '/admin/payments':      'Admin · Payment Testing',
 };
 
 function useBreadcrumbs() {
@@ -164,7 +172,7 @@ export default function TopBar({ keycloak, sidebarHidden, onToggleSidebar }) {
   const { activeProject, loading: projectLoading } = useProject();
 
   return (
-    <header className="flex items-center justify-between bg-white border-b border-slate-100 shrink-0"
+    <header className="flex items-center justify-between bg-white border-b border-slate-200 shadow-sm shrink-0"
       style={{ height: 48, paddingLeft: sidebarHidden ? 12 : 16, paddingRight: 12 }}>
 
       <div className="flex items-center gap-2 min-w-0">
@@ -178,7 +186,11 @@ export default function TopBar({ keycloak, sidebarHidden, onToggleSidebar }) {
           {crumbs.map((c, i) => (
             <span key={i} className="flex items-center gap-1 min-w-0">
               {i > 0 && <ChevronRight size={12} className="text-slate-300 shrink-0" />}
-              <span className={`truncate ${i === crumbs.length - 1 ? 'font-medium text-slate-800' : 'text-slate-400 text-xs'}`}>
+              <span className={`truncate ${
+                i === crumbs.length - 1
+                  ? 'font-semibold text-slate-900'
+                  : 'text-slate-400 text-xs'
+              }`}>
                 {c.label}
               </span>
             </span>
