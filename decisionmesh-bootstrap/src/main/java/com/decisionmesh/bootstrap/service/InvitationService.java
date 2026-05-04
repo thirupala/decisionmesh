@@ -6,6 +6,7 @@ import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -16,7 +17,12 @@ public class InvitationService {
 
     @Inject
     InvitationRepository repository;
-    @Inject EmailService emailService;
+
+    @Inject
+    EmailService emailService;
+
+    @ConfigProperty(name = "app.invite.base-url", defaultValue = "http://localhost:5173")
+    String inviteBaseUrl;
 
     public Uni<InvitationEntity> createInvitation(UUID tenantId, String email, String role) {
 
@@ -34,7 +40,7 @@ public class InvitationService {
 
             return repository.persist(inv)
                     .call(saved -> {
-                        String link = "http://localhost:3000/invite/" + saved.token;
+                        String link = inviteBaseUrl + "/invite/" + saved.token;
                         return emailService.sendInviteEmail(email, link);
                     });
         });

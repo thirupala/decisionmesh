@@ -17,6 +17,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import com.decisionmesh.bootstrap.service.KafkaHealthService;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
@@ -57,6 +58,9 @@ public class AdminResource {
 
     @Inject
     CreditLedgerService creditLedgerService;
+
+    @Inject
+    KafkaHealthService kafkaHealthService;
 
     @Inject
     JsonWebToken jwt;
@@ -463,29 +467,41 @@ public class AdminResource {
                     "uptimeMs",      uptimeMs, "uptimeMinutes", uptimeMs / 60_000,
                     "processors",    rt.availableProcessors()
             );
+            // Kafka health is isolated with its own recovery — a Kafka failure
+            // (broker down, topics missing, timeout) must NEVER wipe out the DB
+            // data that was already collected. The DB chain runs first; Kafka is
+            // chained last so its failure recovery fires before the outer onFailure.
+            Uni<Map<String, Object>> kafkaUni = kafkaHealthService.getHealth()
+                    .onFailure().recoverWithItem(ex -> {
+                        Log.warnf("[Admin] Kafka health probe failed: %s", ex.getMessage());
+                        return new LinkedHashMap<>(Map.of(
+                                "status", "down",
+                                "error",  ex.getMessage() != null ? ex.getMessage() : "unknown error"
+                        ));
+                    });
+
             return UserEntity.count()
                     .flatMap(userCount -> WebhookEventEntity.count("status", "failed")
                             .flatMap(failedWebhooks -> CreditLedgerEntity.count()
-                                    .map(ledgerCount -> {
-                                        Map<String, Object> health = new LinkedHashMap<>();
-                                        health.put("status",    "up");
-                                        health.put("timestamp", OffsetDateTime.now().toString());
-                                        health.put("jvm",       jvm);
-                                        health.put("database",  Map.of(
-                                                "status", "up", "totalUsers", userCount,
-                                                "totalLedgerRows", ledgerCount, "failedWebhooks", failedWebhooks));
-                                        health.put("kafka", Map.of(
-                                                "status", "unknown",
-                                                "note",   "Inject KafkaAdminClient to enable lag metrics"));
-                                        return (Response) Response.ok(health).build();
-                                    })))
+                                    .flatMap(ledgerCount -> kafkaUni
+                                            .map(kafkaHealth -> {
+                                                Map<String, Object> health = new LinkedHashMap<>();
+                                                health.put("status",    "up");
+                                                health.put("timestamp", OffsetDateTime.now().toString());
+                                                health.put("jvm",       jvm);
+                                                health.put("database",  Map.of(
+                                                        "status", "up", "totalUsers", userCount,
+                                                        "totalLedgerRows", ledgerCount, "failedWebhooks", failedWebhooks));
+                                                health.put("kafka",     kafkaHealth);
+                                                return (Response) Response.ok(health).build();
+                                            }))))
                     .onFailure().invoke(ex -> Log.errorf(ex, "[Admin] health check failed"))
                     .onFailure().recoverWithItem(() ->
                             (Response) Response.status(503).entity(Map.of(
-                                    "status",   "degraded",
+                                    "status",    "degraded",
                                     "timestamp", OffsetDateTime.now().toString(),
-                                    "jvm",       jvm,
-                                    "database",  Map.of("status", "down", "note", "DB query failed")
+                                    "jvm",        jvm,
+                                    "database",   Map.of("status", "down", "note", "DB query failed")
                             )).build()
                     );
         });

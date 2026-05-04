@@ -1,0 +1,5 @@
+powershelldocker exec -it decisionmesh-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists --topic intent-events --partitions 1 --replication-factor 1
+powershelldocker exec -it decisionmesh-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists --topic execution-events --partitions 1 --replication-factor 1
+powershelldocker exec -it decisionmesh-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists --topic governance-events --partitions 1 --replication-factor 1
+Verify:
+powershelldocker exec -it decisionmesh-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list

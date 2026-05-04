@@ -3,33 +3,7 @@ import { UserPlus, Copy, Trash2, Mail, Users, Check, Clock, Shield, Eye } from '
 import Page from '../components/shared/Page';
 import { Card, CardHeader, CardTitle, CardContent, Button, Spinner, EmptyState } from '../components/shared';
 import { formatDate, formatRelative } from '../lib/utils';
-
-// ── API helpers ───────────────────────────────────────────────────────────────
-
-const API_BASE = 'http://localhost:8080/api';
-
-async function refreshToken(keycloak) {
-  if (!keycloak.authenticated) { await keycloak.login(); return; }
-  try { await keycloak.updateToken(30); } catch { await keycloak.login(); }
-}
-
-async function request(keycloak, path, options = {}) {
-  await refreshToken(keycloak);
-  if (!keycloak.authenticated) return;
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${keycloak.token}`,
-      ...(options.headers ?? {}),
-    },
-  });
-  if (res.status === 401) { await keycloak.login(); return; }
-  if (res.status === 204) return null;
-  if (!res.ok) throw new Error(await res.text());
-  const text = await res.text();
-  try { return JSON.parse(text); } catch { return text; }
-}
+import { request } from '../utils/api';
 
 async function listInvitations(keycloak) {
   return request(keycloak, '/invitations');

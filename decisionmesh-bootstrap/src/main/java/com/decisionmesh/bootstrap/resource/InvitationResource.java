@@ -3,7 +3,9 @@ package com.decisionmesh.bootstrap.resource;
 import com.decisionmesh.contracts.security.context.TenantContext;
 import com.decisionmesh.bootstrap.service.InvitationService;
 import com.decisionmesh.persistence.entity.InvitationEntity;
+import io.quarkus.security.Authenticated;
 import io.smallrye.mutiny.Uni;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -16,6 +18,7 @@ import java.util.UUID;
 @Path("/api/invitations")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+@Authenticated
 public class InvitationResource {
 
     @Inject InvitationService service;
