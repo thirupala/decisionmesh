@@ -5,7 +5,7 @@ import com.decisionmesh.billing.model.SubscriptionEntity;
 import com.decisionmesh.billing.model.SubscriptionEntity.Plan;
 import com.decisionmesh.billing.model.SubscriptionEntity.Status;
 import com.decisionmesh.billing.repository.SubscriptionRepository;
-import io.quarkus.test.Mock;
+import org.mockito.Mock;
 import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -129,9 +129,9 @@ class SubscriptionServiceTest {
         SubscriptionEntity existing = existingEntity(Plan.BUILDER, Status.ACTIVE);
         when(repository.findByOrgId(ORG_ID)).thenReturn(Uni.createFrom().item(existing));
 
-        service.updateStatus(ORG_ID, Status.CANCELLED).await().indefinitely();
+        service.updateStatus(ORG_ID, Status.CANCELED).await().indefinitely();
 
-        assertThat(existing.status).isEqualTo(Status.CANCELLED);
+        assertThat(existing.status).isEqualTo(Status.CANCELED);
         assertThat(existing.updatedAt).isNotNull();
     }
 
@@ -141,7 +141,7 @@ class SubscriptionServiceTest {
         when(repository.findByOrgId(ORG_ID)).thenReturn(Uni.createFrom().nullItem());
 
         // Should not throw
-        assertThatCode(() -> service.updateStatus(ORG_ID, Status.CANCELLED).await().indefinitely())
+        assertThatCode(() -> service.updateStatus(ORG_ID, Status.CANCELED).await().indefinitely())
                 .doesNotThrowAnyException();
     }
 

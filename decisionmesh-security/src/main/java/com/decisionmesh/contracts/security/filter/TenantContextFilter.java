@@ -72,16 +72,26 @@ public class TenantContextFilter implements ContainerRequestFilter {
         }
 
         // ── Path 2: JWT tenantId claim ────────────────────────────────────────
-        String subClaim = jwt.getSubject();
-        if (tenantId == null) {
-            String tidClaim = jwt.getClaim("tenantId");
-            if (tidClaim != null && !tidClaim.isBlank()) {
-                try {
-                    tenantId = UUID.fromString(tidClaim);
-                } catch (IllegalArgumentException e) {
-                    LOG.warnf("Malformed tenantId claim for sub=%s", subClaim);
+        // Check principal type BEFORE calling jwt CDI proxy — calling jwt.getSubject()
+        // when principal is not a JWT (e.g. @TestSecurity) throws inside CDI proxy.
+        String subClaim = null;
+        java.security.Principal principal = securityIdentity.getPrincipal();
+        if (principal instanceof JsonWebToken jwtPrincipal) {
+            subClaim = jwtPrincipal.getSubject();
+            if (tenantId == null) {
+                String tidClaim = jwtPrincipal.getClaim("tenantId");
+                if (tidClaim != null && !tidClaim.isBlank()) {
+                    try {
+                        tenantId = UUID.fromString(tidClaim);
+                    } catch (IllegalArgumentException e) {
+                        LOG.warnf("Malformed tenantId claim for sub=%s", subClaim);
+                    }
                 }
             }
+        } else {
+            // Non-JWT principal (@TestSecurity, API key, etc.)
+            subClaim = principal.getName();
+            LOG.debugf("Non-JWT principal, using name as sub: %s", subClaim);
         }
 
         // ── Convert sub → userId (handles Zitadel numeric IDs) ───────────────

@@ -60,7 +60,7 @@ public class SubscriptionService {
                     Log.infof("[Subscription] Status → %s: orgId=%s", status, orgId);
                     return Uni.createFrom().voidItem();
                 })
-                .onItem().ifNull().continueWith((Void) null);
+                .replaceWithVoid();
     }
 
     // ── Plan downgrade ────────────────────────────────────────────────────────
@@ -74,7 +74,7 @@ public class SubscriptionService {
                     Log.infof("[Subscription] Downgraded to %s: orgId=%s", plan, orgId);
                     return Uni.createFrom().voidItem();
                 })
-                .onItem().ifNull().continueWith((Void) null);
+                .replaceWithVoid();
     }
 
     // ── Read ──────────────────────────────────────────────────────────────────

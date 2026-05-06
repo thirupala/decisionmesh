@@ -1,6 +1,7 @@
 
 package com.decisionmesh.billing.api;
 
+import com.decisionmesh.billing.BillingTestProfile;
 import com.decisionmesh.billing.service.*;
 import com.decisionmesh.billing.model.SubscriptionEntity.Plan;
 import com.decisionmesh.billing.model.SubscriptionEntity.Status;
@@ -8,6 +9,7 @@ import com.decisionmesh.billing.service.RazorpayService.RazorpayOrderResponse;
 import com.decisionmesh.contracts.security.context.TenantContext;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.TestProfile;
 import io.quarkus.test.security.TestSecurity;
 import io.restassured.http.ContentType;
 import io.smallrye.mutiny.Uni;
@@ -35,6 +37,7 @@ import static org.mockito.Mockito.when;
  * @TestSecurity provides JWT roles without a real OIDC provider.
  */
 @QuarkusTest
+@TestProfile(BillingTestProfile.class)
 @TestSecurity(user = "testuser", roles = {"tenant_user", "sys_admin"})
 class BillingResourceTest {
 

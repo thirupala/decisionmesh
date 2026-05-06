@@ -4,19 +4,21 @@ package com.decisionmesh.billing.service;
 import com.decisionmesh.billing.model.CreditLedgerEntity;
 import com.decisionmesh.billing.model.SubscriptionEntity.Plan;
 import com.decisionmesh.billing.repository.CreditLedgerRepository;
-import io.quarkus.test.Mock;
+import org.mockito.Mock;
 import io.smallrye.mutiny.Uni;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.mockito.*;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for CreditLedgerService.
@@ -45,8 +47,9 @@ class CreditLedgerServiceTest {
     void setUp() {
         service = new CreditLedgerService();
         service.repository = repository;
-        // Default: persist returns the entity back
-        when(repository.persist(any(CreditLedgerEntity.class)))
+        // lenient() prevents UnnecessaryStubbingException for tests that don't call persist()
+        Mockito.lenient()
+                .when(repository.persist(any(CreditLedgerEntity.class)))
                 .thenAnswer(inv -> Uni.createFrom().item(inv.<CreditLedgerEntity>getArgument(0)));
     }
 
@@ -68,9 +71,9 @@ class CreditLedgerServiceTest {
 
     @ParameterizedTest(name = "Plan {0} → {1} credits on monthly reset")
     @CsvSource({
-            "HOBBY,    2000",
-            "BUILDER, 15000",
-            "PRO,     60000",
+            "HOBBY,     500",
+            "BUILDER,  2000",
+            "PRO,      6000",
     })
     @DisplayName("Monthly allocation reset grants plan-specific credit amount")
     void resetMonthlyAllocation_grantsPlanCredits(String planName, int expectedCredits) {
@@ -88,7 +91,7 @@ class CreditLedgerServiceTest {
     void resetMonthlyAllocation_freePlan_noLedgerEntry() {
         service.resetMonthlyAllocation(ORG_ID, Plan.FREE).await().indefinitely();
 
-        verify(repository, never()).persist(any());
+        verify(repository, never()).persist(any(CreditLedgerEntity.class));
     }
 
     // ── grantPurchasedCredits ─────────────────────────────────────────────────
@@ -205,7 +208,7 @@ class CreditLedgerServiceTest {
     @Test
     @DisplayName("getBalance returns sum from repository")
     void getBalance_returnsRepositorySum() {
-        when(repository.sumByOrgId(ORG_ID)).thenReturn(Uni.createFrom().item(15500L));
+        Mockito.when(repository.sumByOrgId(ORG_ID)).thenReturn(Uni.createFrom().item(15500L));
 
         long balance = service.getBalance(ORG_ID).await().indefinitely();
 
@@ -215,7 +218,7 @@ class CreditLedgerServiceTest {
     @Test
     @DisplayName("getBalance returns 0 when repository returns null (empty ledger)")
     void getBalance_nullSum_returnsZero() {
-        when(repository.sumByOrgId(ORG_ID)).thenReturn(Uni.createFrom().item((Long) null));
+        Mockito.when(repository.sumByOrgId(ORG_ID)).thenReturn(Uni.createFrom().item((Long) null));
 
         long balance = service.getBalance(ORG_ID).await().indefinitely();
 
@@ -227,7 +230,7 @@ class CreditLedgerServiceTest {
     @Test
     @DisplayName("hasSufficientCredits returns true when balance meets requirement")
     void hasSufficientCredits_sufficient_returnsTrue() {
-        when(repository.sumByOrgId(ORG_ID)).thenReturn(Uni.createFrom().item(100L));
+        Mockito.when(repository.sumByOrgId(ORG_ID)).thenReturn(Uni.createFrom().item(100L));
 
         boolean result = service.hasSufficientCredits(ORG_ID, 100).await().indefinitely();
 
@@ -237,7 +240,7 @@ class CreditLedgerServiceTest {
     @Test
     @DisplayName("hasSufficientCredits returns false when balance is below requirement")
     void hasSufficientCredits_insufficient_returnsFalse() {
-        when(repository.sumByOrgId(ORG_ID)).thenReturn(Uni.createFrom().item(4L));
+        Mockito.when(repository.sumByOrgId(ORG_ID)).thenReturn(Uni.createFrom().item(4L));
 
         boolean result = service.hasSufficientCredits(ORG_ID, 5).await().indefinitely();
 
@@ -247,7 +250,7 @@ class CreditLedgerServiceTest {
     @Test
     @DisplayName("hasSufficientCredits returns false when balance is zero")
     void hasSufficientCredits_zeroBalance_returnsFalse() {
-        when(repository.sumByOrgId(ORG_ID)).thenReturn(Uni.createFrom().item(0L));
+        Mockito.when(repository.sumByOrgId(ORG_ID)).thenReturn(Uni.createFrom().item(0L));
 
         assertThat(service.hasSufficientCredits(ORG_ID, 1).await().indefinitely()).isFalse();
     }

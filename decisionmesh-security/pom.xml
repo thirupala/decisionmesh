@@ -47,6 +47,12 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-hibernate-reactive-panache</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-jdbc-h2</artifactId>
+            <scope>test</scope>
+        </dependency>
         <!--  Reactive PostgreSQL driver  -->
         <dependency>
             <groupId>io.quarkus</groupId>
