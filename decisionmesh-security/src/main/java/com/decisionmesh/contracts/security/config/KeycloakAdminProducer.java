@@ -1,3 +1,4 @@
+/*
 package com.decisionmesh.contracts.security.config;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -34,4 +35,4 @@ public class KeycloakAdminProducer {
                 .grantType("client_credentials")
                 .build();
     }
-}
+}*/

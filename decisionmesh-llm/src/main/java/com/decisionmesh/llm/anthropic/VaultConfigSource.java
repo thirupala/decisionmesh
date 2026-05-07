@@ -74,6 +74,8 @@ public class VaultConfigSource implements ConfigSource {
         loadDirect(client, "decisionmesh/llm");
         loadDirect(client, "decisionmesh/auth");
         loadDirect(client, "decisionmesh/email");
+        loadDirect(client, "decisionmesh/redis");
+        loadDirect(client, "decisionmesh/kafka");
 
         // Copy into static map so adapters can access via getSecret()
         LOADED.putAll(properties);
@@ -155,7 +157,7 @@ public class VaultConfigSource implements ConfigSource {
             Log.infof("[VaultConfigSource] Loaded %d keys from %s", count[0], path);
 
         } catch (Exception e) {
-            Log.errorf("[VaultConfigSource] Failed to load %s: %s", path, e.getMessage());
+            Log.errorf(e, "[VaultConfigSource] Failed to load %s", path);
         }
     }
 

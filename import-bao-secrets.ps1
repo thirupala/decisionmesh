@@ -9,7 +9,7 @@
 param(
     [string]$BaoAddr    = "http://localhost:8200",
     [string]$Token      = "",
-    [string]$InputFile  = "bao_secrets_export.json"
+    [string]$InputFile  = "C:\Users\thiru\bao-backup.json"
 )
 
 function Write-Info { param($m) Write-Host "[INFO]  $m" -ForegroundColor Cyan   }

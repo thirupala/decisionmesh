@@ -67,15 +67,8 @@
             <groupId>org.eclipse.microprofile.jwt</groupId>
             <artifactId>microprofile-jwt-auth-api</artifactId>
         </dependency>
-        <!--  Keycloak admin client — tenant provisioning on signup  -->
-        <!--<dependency>
-            <groupId>org.keycloak</groupId>
-            <artifactId>keycloak-admin-client</artifactId>
-        </dependency>-->
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-keycloak-admin-rest-client</artifactId>
-        </dependency>
+
+
         <!--  ── REST + Routing ──────────────────────────────────────────────  -->
         <!--  RESTEasy Reactive — SignupResource, ApiKeyResource  -->
         <dependency>

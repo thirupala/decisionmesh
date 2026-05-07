@@ -1,3 +1,4 @@
+/*
 package com.decisionmesh.contracts.security.service;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -44,4 +45,4 @@ public class KeycloakProvisioningService {
                 .realmLevel()
                 .add(Collections.singletonList(role));
     }
-}
+}*/

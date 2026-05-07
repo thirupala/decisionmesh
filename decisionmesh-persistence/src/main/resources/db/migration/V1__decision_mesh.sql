@@ -16,6 +16,10 @@
 CREATE
 EXTENSION IF NOT EXISTS pgcrypto;
 
+CREATE
+EXTENSION IF NOT EXISTS vector;
+
+
 -- ============================================================
 -- UTILITY FUNCTIONS
 -- ============================================================
@@ -883,16 +887,50 @@ CREATE INDEX idx_user_feedback_user_id ON user_feedback (user_id);
 CREATE INDEX idx_user_feedback_category ON user_feedback (category);
 CREATE INDEX idx_user_feedback_created_at ON user_feedback (created_at DESC);
 
-CREATE TABLE IF NOT EXISTS webhook_events (
-                                              id           UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    gateway      VARCHAR(20)  NOT NULL CHECK (gateway IN ('stripe', 'razorpay')),
-    event_type   VARCHAR(100) NOT NULL,
-    payload      TEXT,
-    status       VARCHAR(20)  NOT NULL DEFAULT 'received'
-    CHECK (status IN ('received', 'processed', 'failed')),
-    error        TEXT,
-    org_id       UUID,
-    received_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+CREATE TABLE IF NOT EXISTS webhook_events
+(
+    id
+    UUID
+    PRIMARY
+    KEY
+    DEFAULT
+    gen_random_uuid
+(
+),
+    gateway VARCHAR
+(
+    20
+) NOT NULL CHECK
+(
+    gateway
+    IN
+(
+    'stripe',
+    'razorpay'
+)),
+    event_type VARCHAR
+(
+    100
+) NOT NULL,
+    payload TEXT,
+    status VARCHAR
+(
+    20
+) NOT NULL DEFAULT 'received'
+    CHECK
+(
+    status
+    IN
+(
+    'received',
+    'processed',
+    'failed'
+)),
+    error TEXT,
+    org_id UUID,
+    received_at TIMESTAMPTZ NOT NULL DEFAULT now
+(
+),
     processed_at TIMESTAMPTZ
     );
 
@@ -1160,6 +1198,15 @@ UPDATE OR
 DELETE
 ON adapters
     FOR EACH ROW EXECUTE FUNCTION fn_audit_adapters();
+
+CREATE TABLE knowledge_chunks
+(
+    id         BIGSERIAL PRIMARY KEY,
+    content    TEXT NOT NULL,
+    embedding  VECTOR(1536), -- start with OpenAI
+    provider   TEXT,         -- openai / ollama
+    created_at TIMESTAMP DEFAULT now()
+);
 
 -- ============================================================
 -- DONE
