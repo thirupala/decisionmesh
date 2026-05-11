@@ -1,8 +1,8 @@
 # ============================================================
 # docker-compose.yml — base layer
 # Usage:
-#   Local : docker compose -f docker-compose.yml -f docker-compose_local.yml up -d
-#   Prod  : docker compose -f docker-compose.yml -f docker-compose_prod.yml   up -d
+#   Local : docker compose -f docker-compose.yml -f docker-compose_local.yml --env-file .env up -d
+#   Prod  : docker compose -f docker-compose.yml -f docker-compose_prod.yml   --env-file .env up -d
 #   See docker-compose_staging.yml for standalone staging
 # ============================================================
 
@@ -16,10 +16,12 @@ networks:
 services:
 
   # ----------------------------------------------------------
-  # PostgreSQL
+  # PostgreSQL — pgvector image required for vector embeddings
   # ----------------------------------------------------------
   postgres:
-    image: postgres:16-alpine
+    # FIX: was postgres:16-alpine — missing pgvector extension
+    # needed for AI/embedding features
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_DB:       ${DB_NAME:-decisionmesh}
       POSTGRES_USER:     ${DB_USER:-decisionmesh}
