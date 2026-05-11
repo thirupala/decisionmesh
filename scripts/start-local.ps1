@@ -7,7 +7,7 @@ Write-Host "Waiting for OpenBao..." -ForegroundColor Cyan
 Start-Sleep 5
 
 Write-Host "Seeding secrets..." -ForegroundColor Cyan
-. .\scripts\set-valut-env.ps1
+. .\scripts\set-vault-env.ps1
 .\scripts\init-openbao.ps1
 
 Write-Host "Building..." -ForegroundColor Cyan
